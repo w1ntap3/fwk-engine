@@ -4,11 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define WINDOW_HEIGHT 480
-#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 1000
+#define WINDOW_WIDTH 1000
 #define FPS_STR_BUF 32
 #define RUNS_STR_BUF 32
-#define MAX_PARTICLES 10000
+#define MAX_PARTICLES 1000
+#define MAX_FIREWORKS 10
 
 #define JAVID_GREEN (Color){0x1f, 0x28, 0x1f, 0xFF}
 #define JAVID_PURPLE (Color){0xaf, 0x81, 0xcf, 0xFF}
@@ -32,6 +33,16 @@ struct Particle {
   Vector2 velocity;
   Color col_in;
   Color col_out;
+};
+
+struct Explosion {
+  struct Particle particles[];
+};
+
+struct Firework {
+  Vector2 pos;
+  Vector2 velocity;
+  struct Explosion explosion;
 };
 
 uint32_t rng_state = 123456789u;
@@ -74,33 +85,35 @@ void shake_camera(struct Camera2D *camera, float dt) {
 
   int shake_mult_x = fast_rand() % MAX_SHAKE_MULTIPLIER;
   int shake_mult_y = fast_rand() % MAX_SHAKE_MULTIPLIER;
-  camera->offset.x = x * shake_mult_x * strength;
-  camera->offset.y = y * shake_mult_y * strength;
+  camera->offset.x = WINDOW_WIDTH / 2.0f + x * shake_mult_x * strength;
+  camera->offset.y = WINDOW_HEIGHT / 2.0f + y * shake_mult_y * strength;
 
   if (shake_time <= 0.0f) {
     shake_time = 0.0f;
-    camera->offset = (Vector2){0, 0};
+    camera->offset = (Vector2){WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
   }
 }
 
 struct Color random_color() {
   struct Color generated_color;
   generated_color.a = 255;
-  generated_color.r = fast_rand() % 256;
-  generated_color.g = fast_rand() % 256;
-  generated_color.b = fast_rand() % 256;
+  generated_color.r = 200 + fast_rand() % 55;
+  generated_color.g = 50 + fast_rand() % 170;
+  generated_color.b = fast_rand() % 40;
   return generated_color;
 }
-void reset_particles(struct Particle *particles, const int particle_count,
-                     const Vector2 center) {
+void call_particles(struct Particle *particles, const int particle_count,
+                    const Vector2 center) {
   memset(particles, 0, particle_count * sizeof(struct Particle));
   for (int prtcl = 0; prtcl < particle_count; prtcl++) {
     particles[prtcl].center = center;
     particles[prtcl].radius = PARTICLE_RADIUS;
+    int random_max_vel_x = fast_rand() % MAX_VEL_X;
+    int random_max_vel_y = fast_rand() % MAX_VEL_X;
     particles[prtcl].velocity.x =
-        (((fast_rand() >> 8) / 16777216.0f) * 2.0f - 1.0f) * MAX_VEL_X;
+        (((fast_rand() >> 8) / 16777216.0f) * 2.0f - 1.0f) * random_max_vel_x;
     particles[prtcl].velocity.y =
-        (((fast_rand() >> 8) / 16777216.0f) * 2.0f - 1.0f) * MAX_VEL_Y;
+        (((fast_rand() >> 8) / 16777216.0f) * 2.0f - 1.0f) * random_max_vel_y;
     particles[prtcl].col_in = random_color();
     particles[prtcl].col_out = random_color();
   }
@@ -127,11 +140,11 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   struct Particle particles[particle_count];
-  reset_particles(particles, particle_count, PARTICLE_CENTER_DEFAULT);
+  call_particles(particles, particle_count, PARTICLE_CENTER_DEFAULT);
 
   Camera2D camera;
-  camera.offset = (Vector2){0, 0};
-  camera.target = (Vector2){0, 0};
+  camera.offset = (Vector2){WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
+  camera.target = (Vector2){WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
   camera.rotation = 0;
   camera.zoom = 1;
 
@@ -143,7 +156,8 @@ int main(int argc, char *argv[]) {
     snprintf(runs_str, sizeof(runs_str), "%d", runs);
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       Sound particle_sound = LoadSound(randomize_sound("particle"));
-      reset_particles(particles, particle_count, GetMousePosition());
+      call_particles(particles, particle_count,
+                     GetScreenToWorld2D(GetMousePosition(), camera));
       shake_time = MAX_SHAKE_TIME;
       PlaySound(particle_sound);
     }
@@ -155,9 +169,14 @@ int main(int argc, char *argv[]) {
       CloseWindow();
       return 0;
     }
-    if (IsKeyPressed(KEY_MINUS)) {
-      camera.zoom -= 0.1f;
+    if (IsKeyDown(KEY_MINUS)) {
+      camera.zoom -= 0.01f;
     }
+    if (IsKeyDown(KEY_EQUAL)) {
+      camera.zoom += 0.01f;
+    }
+    if (camera.zoom < 0.1f)
+      camera.zoom = 0.1f;
     BeginDrawing();
     ClearBackground(JAVID_GREEN);
     BeginMode2D(camera);
@@ -168,9 +187,9 @@ int main(int argc, char *argv[]) {
       DrawCircleGradient(particles[prtcl].center, PARTICLE_RADIUS,
                          particles[prtcl].col_in, particles[prtcl].col_out);
     }
+    EndMode2D();
     DrawText(fps_str, 0, 0, 40, JAVID_PURPLE);
     DrawText(runs_str, 0, 40, 40, JAVID_PURPLE);
-    EndMode2D();
     EndDrawing();
   }
   return 1;
