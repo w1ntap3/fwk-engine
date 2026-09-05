@@ -12,6 +12,7 @@ int fireworks = 0;
 struct Particle particle_array[MAX_PARTICLES];
 struct Firework fireworks_array[MAX_FIREWORKS];
 struct Explosion explosion_array[MAX_FIREWORKS];
+
 int main(void) {
   SetTraceLogLevel(LOG_NONE);
 
@@ -40,8 +41,6 @@ int main(void) {
     snprintf(fps_str, sizeof(fps_str), "%d", GetFPS());
     snprintf(runs_str, sizeof(runs_str), "%d", runs);
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      Sound particle_sound = LoadSound(randomize_sound("particle"));
-      PlaySound(particle_sound);
       struct Firework new_firework;
       new_firework.pos = real_mouse_pos(camera);
       new_firework.velocity = (Vector2){0, 0};
@@ -49,7 +48,6 @@ int main(void) {
       new_firework.alive = true;
       new_firework.active = true;
       summon_firework(new_firework);
-      call_particle_array(particle_array, real_mouse_pos(camera));
     }
 
     if (shake_time > 0) {
@@ -99,11 +97,27 @@ void handle_fwk(int fwk, Camera2D camera, double dt,
   if (cur_fwk->expiration < 0.0f) {
     cur_fwk->expiration = 0.0f;
     if (cur_fwk->alive || cur_fwk->active) {
+      Sound particle_sound = LoadSound(randomize_sound("particle"));
+      PlaySound(particle_sound);
+      call_particle_array(particle_array, cur_fwk->pos);
       fireworks--;
     }
     cur_fwk->alive = false;
     cur_fwk->active = false;
   }
+
+  Vector2 min = GetScreenToWorld2D((Vector2){0, 0}, camera);
+  Vector2 max =
+      GetScreenToWorld2D((Vector2){WINDOW_WIDTH, WINDOW_HEIGHT}, camera);
+
+  if (cur_fwk->pos.x < min.x || cur_fwk->pos.x > max.x ||
+      cur_fwk->pos.y < min.y || cur_fwk->pos.y > max.y) {
+    Sound particle_sound = LoadSound(randomize_sound("particle"));
+    PlaySound(particle_sound);
+    call_particle_array(particle_array, cur_fwk->pos);
+    reset_fwk(cur_fwk);
+  }
+
   if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && cur_fwk->active) {
     cur_fwk->active = false;
   }

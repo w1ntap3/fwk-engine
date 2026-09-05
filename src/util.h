@@ -17,5 +17,5 @@ struct Color random_color();
 float face_mouse(const Vector2 pos, const Vector2 mouse);
 Vector2 real_mouse_pos(Camera2D camera);
 void fireworks_expiration_string(char *buffer, size_t buffer_size);
-
+void reset_fwk(struct Firework *cur_fwk);
 #endif

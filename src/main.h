@@ -42,6 +42,7 @@
 struct Particle {
   Vector2 pos;
   Vector2 velocity;
+  bool seen;
 };
 
 struct Explosion {

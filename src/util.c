@@ -1,6 +1,8 @@
 #include "util.h"
 #include "main.h"
 #include <math.h>
+#include <raylib.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -79,4 +81,14 @@ void fireworks_expiration_string(char *buffer, size_t buffer_size) {
   }
 
   snprintf(buffer + offset, buffer_size - offset, "]");
+}
+
+void reset_fwk(struct Firework *cur_fwk) {
+  cur_fwk->pos = (Vector2){0, 0};
+  cur_fwk->active = false;
+  cur_fwk->alive = false;
+  cur_fwk->expiration = FIREWORK_EXPIRATION;
+  cur_fwk->velocity = (Vector2){0, 0};
+  cur_fwk->last_dir = (Vector2){0, 0};
+  cur_fwk->rot = 0.0f;
 }
