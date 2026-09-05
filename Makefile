@@ -1,7 +1,7 @@
 TARGET := raylib
-SRC := main.c
+SRC := ${wildcard src/*.c}
 FLAGS := -lraylib -lm -Wall -Wextra
-PARTICLE_COUNT := 1000
+PARTICLE_COUNT := 100
 run:
 	gcc -o ${TARGET} ${SRC} ${FLAGS}
 	./raylib ${PARTICLE_COUNT}
