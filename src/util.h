@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-extern int runs;
 extern float shake_time;
 
 uint32_t fast_rand(void);

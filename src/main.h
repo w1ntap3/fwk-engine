@@ -6,7 +6,6 @@
 #define WINDOW_HEIGHT 1000
 #define WINDOW_WIDTH 1000
 #define FPS_STR_BUF 32
-#define RUNS_STR_BUF 32
 #define FWKS_STR_BUF 256
 
 #define MAX_PARTICLES 1000
@@ -68,8 +67,8 @@ extern struct Particle particle_array[MAX_PARTICLES];
 
 void call_particle_array(struct Particle *particle_array, const Vector2 pos);
 int summon_firework(const struct Firework new_fwk);
-void handle_fwk(int fwk, Camera2D camera, double dt,
-                Texture2D firework_texture);
 
+void handle_fwk(int fwk, Camera2D *camera, double dt,
+                Texture2D firework_texture);
 void handle_prtcl(int prtcl, double dt, Texture2D particle_texture);
 #endif

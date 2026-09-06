@@ -1,11 +1,11 @@
 #include "main.h"
 #include "util.h"
+#include <math.h>
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
 int explosions = 0;
 int fireworks = 0;
 
@@ -35,11 +35,9 @@ int main(void) {
   while (!WindowShouldClose()) {
     double dt = GetFrameTime();
     char fps_str[FPS_STR_BUF];
-    char runs_str[RUNS_STR_BUF];
     char fwks_str[FWKS_STR_BUF];
     fireworks_expiration_string(fwks_str, FWKS_STR_BUF);
     snprintf(fps_str, sizeof(fps_str), "%d", GetFPS());
-    snprintf(runs_str, sizeof(runs_str), "%d", runs);
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       struct Firework new_firework;
       new_firework.pos = real_mouse_pos(camera);
@@ -77,20 +75,19 @@ int main(void) {
     }
 
     for (int fwk = 0; fwk < MAX_FIREWORKS; fwk++) {
-      handle_fwk(fwk, camera, dt, firework_texture);
+      handle_fwk(fwk, &camera, dt, firework_texture);
     }
 
     EndMode2D();
 
     DrawText(fps_str, 0, 0, 20, MY_PURPLE);
-    DrawText(runs_str, 0, 20, 20, MY_PURPLE);
     DrawText(fwks_str, 0, 40, 20, MY_PURPLE);
     EndDrawing();
   }
   return 1;
 }
 
-void handle_fwk(int fwk, Camera2D camera, double dt,
+void handle_fwk(int fwk, Camera2D *camera, double dt,
                 Texture2D firework_texture) {
   struct Firework *cur_fwk = &fireworks_array[fwk];
 
@@ -99,6 +96,8 @@ void handle_fwk(int fwk, Camera2D camera, double dt,
     if (cur_fwk->alive || cur_fwk->active) {
       Sound particle_sound = LoadSound(randomize_sound("particle"));
       PlaySound(particle_sound);
+      shake_time = MAX_SHAKE_TIME;
+      shake_camera(camera, dt);
       call_particle_array(particle_array, cur_fwk->pos);
       fireworks--;
     }
@@ -106,14 +105,16 @@ void handle_fwk(int fwk, Camera2D camera, double dt,
     cur_fwk->active = false;
   }
 
-  Vector2 min = GetScreenToWorld2D((Vector2){0, 0}, camera);
+  Vector2 min = GetScreenToWorld2D((Vector2){0, 0}, *camera);
   Vector2 max =
-      GetScreenToWorld2D((Vector2){WINDOW_WIDTH, WINDOW_HEIGHT}, camera);
+      GetScreenToWorld2D((Vector2){WINDOW_WIDTH, WINDOW_HEIGHT}, *camera);
 
   if (cur_fwk->pos.x < min.x || cur_fwk->pos.x > max.x ||
       cur_fwk->pos.y < min.y || cur_fwk->pos.y > max.y) {
     Sound particle_sound = LoadSound(randomize_sound("particle"));
     PlaySound(particle_sound);
+    shake_time = MAX_SHAKE_TIME;
+    shake_camera(camera, dt);
     call_particle_array(particle_array, cur_fwk->pos);
     reset_fwk(cur_fwk);
   }
@@ -125,26 +126,23 @@ void handle_fwk(int fwk, Camera2D camera, double dt,
     cur_fwk->expiration -= FIREWORK_EXPIRATION_SPEED;
     if (cur_fwk->active) {
       cur_fwk->velocity.x =
-          FIREWORK_VEL * (real_mouse_pos(camera).x - cur_fwk->pos.x);
+          FIREWORK_VEL * (real_mouse_pos(*camera).x - cur_fwk->pos.x);
       cur_fwk->velocity.y =
-          FIREWORK_VEL * (real_mouse_pos(camera).y - cur_fwk->pos.y);
-      cur_fwk->last_dir.x = cur_fwk->velocity.x;
-      cur_fwk->last_dir.y = cur_fwk->velocity.y;
-      cur_fwk->rot = face_mouse(cur_fwk->pos, real_mouse_pos(camera));
+          FIREWORK_VEL * (real_mouse_pos(*camera).y - cur_fwk->pos.y);
+
+      cur_fwk->last_dir = cur_fwk->velocity;
+
+      cur_fwk->rot = face_mouse(cur_fwk->pos, real_mouse_pos(*camera));
     } else {
-      float vel_x, vel_y;
-      if (cur_fwk->last_dir.x >= 0) {
-        vel_x = FIREWORK_CONSTANT_VEL;
-      } else {
-        vel_x = (-1.0f) * FIREWORK_CONSTANT_VEL;
+      float length = sqrtf(cur_fwk->last_dir.x * cur_fwk->last_dir.x +
+                           cur_fwk->last_dir.y * cur_fwk->last_dir.y);
+
+      if (length > 0.0f) {
+        cur_fwk->velocity.x =
+            (cur_fwk->last_dir.x / length) * FIREWORK_CONSTANT_VEL;
+        cur_fwk->velocity.y =
+            (cur_fwk->last_dir.y / length) * FIREWORK_CONSTANT_VEL;
       }
-      if (cur_fwk->last_dir.y >= 0) {
-        vel_y = FIREWORK_CONSTANT_VEL;
-      } else {
-        vel_y = (-1.0f) * FIREWORK_CONSTANT_VEL;
-      }
-      cur_fwk->velocity.x = vel_x;
-      cur_fwk->velocity.y = vel_y;
     }
     cur_fwk->pos.x += cur_fwk->velocity.x * dt;
     cur_fwk->pos.y += cur_fwk->velocity.y * dt;
@@ -180,8 +178,6 @@ void call_particle_array(struct Particle *particle_array, const Vector2 pos) {
     particle_array[prtcl].velocity.y =
         (((fast_rand() >> 8) / 16777216.0f) * 2.0f - 1.0f) * random_max_vel_y;
   }
-  runs++;
-  printf("Initialized %d particle_array (Run #%d)\n", MAX_PARTICLES, runs);
 }
 
 int summon_firework(const struct Firework new_fwk) {
@@ -189,13 +185,14 @@ int summon_firework(const struct Firework new_fwk) {
     fprintf(stderr, "Cannot summon a firework since there are too many\n");
     return -1;
   }
-  int fwk_element;
+
   for (int element = 0; element < MAX_FIREWORKS; element++) {
     if (!fireworks_array[element].alive) {
-      fwk_element = element;
+      fireworks_array[element] = new_fwk;
+      fireworks++;
+      return fireworks;
     }
   }
-  fireworks_array[fwk_element] = new_fwk;
-  fireworks++;
-  return fireworks;
+
+  return -1;
 }

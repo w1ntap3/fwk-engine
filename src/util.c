@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-int runs = 0;
 float shake_time = 0;
 
 uint32_t rng_state = 123456789u;
@@ -91,4 +90,5 @@ void reset_fwk(struct Firework *cur_fwk) {
   cur_fwk->velocity = (Vector2){0, 0};
   cur_fwk->last_dir = (Vector2){0, 0};
   cur_fwk->rot = 0.0f;
+  fireworks--;
 }
